@@ -12,51 +12,53 @@ import java.util.Map;
 @Service
 public class EmailService {
 
-    @Value("${BREVO_API_KEY}")
-    private String brevoApiKey;
+    @Value("${SENDGRID_API_KEY}")
+    private String sendGridApiKey;
 
-    private static final String BREVO_URL = "https://api.brevo.com/v3/smtp/email";
+    private static final String SENDGRID_URL = "https://api.sendgrid.com/v3/mail/send";
 
     public void sendEmail(String to, String subject, String body) {
         try {
             RestTemplate restTemplate = new RestTemplate();
 
-            // sender info (must be your verified Brevo sender email)
-            Map<String, String> sender = new HashMap<>();
-            sender.put("name", "Money Manager App");
-            sender.put("email", "shivambhagatkar34@gmail.com");
+            // sender info
+            Map<String, String> from = new HashMap<>();
+            from.put("email", "shivambhagatkar34@gmail.com");
+            from.put("name", "Money Manager App");
 
             // recipient info
-            Map<String, String> recipient = new HashMap<>();
-            recipient.put("email", to);
-            recipient.put("name", to);
+            Map<String, String> toMap = new HashMap<>();
+            toMap.put("email", to);
 
-            // build body
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("sender", sender);
-            requestBody.put("to", List.of(recipient));
-            requestBody.put("subject", subject);
-            requestBody.put("htmlContent", "<html><body>" + body + "</body></html>");
+            // content
+            Map<String, String> contentMap = new HashMap<>();
+            contentMap.put("type", "text/html");
+            contentMap.put("value", body);
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("personalizations", List.of(Map.of("to", List.of(toMap))));
+            message.put("from", from);
+            message.put("subject", subject);
+            message.put("content", List.of(contentMap));
 
             // headers
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("api-key", brevoApiKey);
+            headers.setBearerAuth(sendGridApiKey);
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(message, headers);
 
-            ResponseEntity<String> response =
-                    restTemplate.postForEntity(BREVO_URL, entity, String.class);
+            ResponseEntity<String> response = restTemplate.postForEntity(SENDGRID_URL, request, String.class);
 
             if (response.getStatusCode() == HttpStatus.ACCEPTED) {
                 System.out.println("✅ Email sent successfully to " + to);
             } else {
-                System.out.println("⚠️ Email failed with response: " + response.getBody());
+                System.out.println("⚠️ Email failed: " + response.getBody());
             }
 
         } catch (Exception e) {
             e.printStackTrace();
-            throw new RuntimeException("❌ Error sending email via Brevo API: " + e.getMessage());
+            throw new RuntimeException("❌ Error sending email via SendGrid: " + e.getMessage());
         }
     }
 }
